@@ -23,13 +23,11 @@
             margin-bottom: 20px;
             text-align: center;
         }
-        label {
+        label, input {
             display: block;
             margin-bottom: 5px;
-            font-weight: bold;
         }
         input {
-            margin-bottom: 15px;
             padding: 8px;
             width: 90%;
             max-width: 300px;
@@ -45,11 +43,11 @@
             margin: 5px;
         }
         button#start {
-            background-color: #4CAF50;
+            background-color: #2e7d32; /* Verde oscuro */
             color: white;
         }
         button#reset {
-            background-color: #f44336;
+            background-color: #b71c1c; /* Rojo oscuro */
             color: white;
         }
         .timer {
@@ -61,6 +59,32 @@
             padding: 10px;
             font-size: 18px;
             border-radius: 5px;
+        }
+        .progress-container {
+            width: 90%;
+            max-width: 300px;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #000; /* Negro */
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        .refresh-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #0288d1;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none; /* Ocultarlo inicialmente */
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -85,17 +109,30 @@
 
     <div class="status" id="status">Configura tu temporizador</div>
     <div class="timer" id="timer">00:00</div>
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <button id="refreshButton" class="refresh-button" onclick="location.reload()">Actualízame</button>
+
+    <!-- Audio files -->
+    <audio id="startSound" src="start-sound.mp3"></audio>
+    <audio id="endSound" src="end-sound.mp3"></audio>
 
     <script>
         const startButton = document.getElementById('start');
         const resetButton = document.getElementById('reset');
+        const refreshButton = document.getElementById('refreshButton');
         const timerDisplay = document.getElementById('timer');
         const statusDisplay = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+        const startSound = document.getElementById('startSound');
+        const endSound = document.getElementById('endSound');
+        const form = document.getElementById('configForm');
         const body = document.body;
 
         let exercises, exerciseTime, restTime, cycles;
         let currentExercise = 0, currentCycle = 0, isExercise = true;
-        let interval = null, timeRemaining = 0;
+        let interval = null, timeRemaining = 0, totalTime = 0;
 
         const updateTimerDisplay = () => {
             const minutes = Math.floor(timeRemaining / 60);
@@ -103,26 +140,45 @@
             timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         };
 
+        const updateProgressBar = () => {
+            const percentage = ((totalTime - timeRemaining) / totalTime) * 100;
+            progressBar.style.width = `${percentage}%`;
+        };
+
         const updateStatusDisplay = () => {
             if (currentCycle < cycles) {
-                statusDisplay.textContent = `Ciclo ${currentCycle + 1} de ${cycles}, Ejercicio ${currentExercise + 1} de ${exercises}`;
+                statusDisplay.textContent = `SERIE: ${currentCycle + 1}/${cycles} EJERCICIO: ${currentExercise + 1}/${exercises}`;
                 if (isExercise) {
                     body.style.backgroundColor = '#4CAF50'; // Verde para ejercicio
+                    startSound.play(); // Reproduce sonido al inicio de cada ejercicio
                 } else {
                     body.style.backgroundColor = '#f44336'; // Rojo para descanso
+                    endSound.play(); // Reproduce sonido al inicio del descanso
                 }
             } else {
                 statusDisplay.textContent = '¡Entrenamiento completado!';
                 body.style.backgroundColor = '#f4f4f4'; // Fondo predeterminado al terminar
+                endSound.play(); // Reproduce sonido de finalización
+                showRefreshButton(); // Mostrar el botón de actualización
             }
+        };
+
+        const showRefreshButton = () => {
+            refreshButton.style.display = 'block'; // Mostrar el botón
         };
 
         const startTimer = () => {
             if (!interval) {
+                form.querySelectorAll('label, input').forEach(el => el.style.display = 'none');
+
+                timeRemaining = isExercise ? exerciseTime : restTime;
+                totalTime = timeRemaining;
+
                 interval = setInterval(() => {
                     if (timeRemaining > 0) {
                         timeRemaining--;
                         updateTimerDisplay();
+                        updateProgressBar();
                     } else {
                         if (isExercise) {
                             isExercise = false;
@@ -142,7 +198,9 @@
                             }
                             timeRemaining = exerciseTime;
                         }
+                        totalTime = timeRemaining;
                         updateStatusDisplay();
+                        updateProgressBar();
                     }
                 }, 1000);
             }
@@ -155,27 +213,23 @@
             currentCycle = 0;
             isExercise = true;
             timeRemaining = 0;
-            timerDisplay.textContent = '00:00';
-            statusDisplay.textContent = 'Configura tu temporizador';
-            body.style.backgroundColor = '#f4f4f4';
+
+            location.reload(); // Refrescar la página al reiniciar
         };
 
         startButton.addEventListener('click', () => {
-            if (!interval) {
-                exercises = parseInt(document.getElementById('exercises').value);
-                exerciseTime = parseInt(document.getElementById('exerciseTime').value);
-                restTime = parseInt(document.getElementById('restTime').value);
-                cycles = parseInt(document.getElementById('cycles').value);
+            exercises = parseInt(document.getElementById('exercises').value);
+            exerciseTime = parseInt(document.getElementById('exerciseTime').value);
+            restTime = parseInt(document.getElementById('restTime').value);
+            cycles = parseInt(document.getElementById('cycles').value);
 
-                if (isNaN(exercises) || isNaN(exerciseTime) || isNaN(restTime) || isNaN(cycles)) {
-                    alert('Por favor, completa todos los campos.');
-                    return;
-                }
-
-                timeRemaining = exerciseTime;
-                updateStatusDisplay();
-                startTimer();
+            if (isNaN(exercises) || isNaN(exerciseTime) || isNaN(restTime) || isNaN(cycles)) {
+                alert('Por favor, completa todos los campos.');
+                return;
             }
+
+            updateStatusDisplay();
+            startTimer();
         });
 
         resetButton.addEventListener('click', resetTimer);
